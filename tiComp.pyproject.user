@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE QtCreatorProject>
-<!-- Written by QtCreator 7.0.2, 2022-07-05T21:41:09. -->
+<!-- Written by QtCreator 7.0.2, 2022-07-06T20:02:25. -->
 <qtcreator>
  <data>
   <variable>EnvironmentId</variable>
@@ -116,16 +116,16 @@
     <valuelist type="QVariantList" key="CustomOutputParsers"/>
     <value type="int" key="PE.EnvironmentAspect.Base">2</value>
     <valuelist type="QVariantList" key="PE.EnvironmentAspect.Changes"/>
-    <value type="QString" key="ProjectExplorer.ProjectConfiguration.DisplayName">/media/jitesh/0EA7158B0EA7158B/repos/jj/ucl/tiComp/ticomp.py</value>
-    <value type="QString" key="ProjectExplorer.ProjectConfiguration.Id">PythonEditor.RunConfiguration./media/jitesh/0EA7158B0EA7158B/repos/jj/ucl/tiComp/ticomp.py</value>
-    <value type="QString" key="ProjectExplorer.RunConfiguration.BuildKey">/media/jitesh/0EA7158B0EA7158B/repos/jj/ucl/tiComp/ticomp.py</value>
+    <value type="QString" key="ProjectExplorer.ProjectConfiguration.DisplayName">/mnt/0EA7158B0EA7158B/repos/jj/ucl/TiComp/ticomp.py</value>
+    <value type="QString" key="ProjectExplorer.ProjectConfiguration.Id">PythonEditor.RunConfiguration./mnt/0EA7158B0EA7158B/repos/jj/ucl/TiComp/ticomp.py</value>
+    <value type="QString" key="ProjectExplorer.RunConfiguration.BuildKey">/mnt/0EA7158B0EA7158B/repos/jj/ucl/TiComp/ticomp.py</value>
     <value type="QString" key="PythonEditor.RunConfiguation.Interpreter">{581367d5-0970-49d9-90a5-169a3562e573}</value>
-    <value type="QString" key="PythonEditor.RunConfiguation.Script">/media/jitesh/0EA7158B0EA7158B/repos/jj/ucl/tiComp/ticomp.py</value>
+    <value type="QString" key="PythonEditor.RunConfiguation.Script">/mnt/0EA7158B0EA7158B/repos/jj/ucl/TiComp/ticomp.py</value>
     <value type="bool" key="RunConfiguration.UseCppDebugger">false</value>
     <value type="bool" key="RunConfiguration.UseCppDebuggerAuto">true</value>
     <value type="bool" key="RunConfiguration.UseQmlDebugger">false</value>
     <value type="bool" key="RunConfiguration.UseQmlDebuggerAuto">true</value>
-    <value type="QString" key="RunConfiguration.WorkingDirectory.default">/media/jitesh/0EA7158B0EA7158B/repos/jj/ucl/tiComp</value>
+    <value type="QString" key="RunConfiguration.WorkingDirectory.default">/mnt/0EA7158B0EA7158B/repos/jj/ucl/TiComp</value>
    </valuemap>
    <value type="qlonglong" key="ProjectExplorer.Target.RunConfigurationCount">1</value>
   </valuemap>

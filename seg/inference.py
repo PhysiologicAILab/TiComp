@@ -58,6 +58,7 @@ class ThermSeg():
                 self.net = Generator(backbone='drn', in_channels=n_channels, output_stride=8, num_classes=n_classes, sync_bn=True, freeze_bn=False, pretrained=False)
 
         self.net = self.net.to(device=self.device)
+        print("=> Loading checkpoint:", trained_model_path)
         try:
             load_checkpoint(trained_model_path, self.net, self.device, strict=True, load_opt=False)
         except:

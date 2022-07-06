@@ -6,14 +6,14 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1024</width>
-    <height>768</height>
+    <width>1200</width>
+    <height>900</height>
    </rect>
   </property>
   <property name="maximumSize">
    <size>
-    <width>1024</width>
-    <height>768</height>
+    <width>1200</width>
+    <height>900</height>
    </size>
   </property>
   <property name="windowTitle">
@@ -123,7 +123,8 @@ Thermal Camera</string>
          </font>
         </property>
         <property name="text">
-         <string>Extract and Plot Breathing Signal</string>
+         <string>Extract and Plot 
+Nostril Temperature Signal</string>
         </property>
        </widget>
       </item>
@@ -171,10 +172,16 @@ Thermal Camera</string>
        <verstretch>0</verstretch>
       </sizepolicy>
      </property>
+     <property name="minimumSize">
+      <size>
+       <width>1200</width>
+       <height>380</height>
+      </size>
+     </property>
      <property name="maximumSize">
       <size>
-       <width>16777215</width>
-       <height>250</height>
+       <width>1200</width>
+       <height>380</height>
       </size>
      </property>
      <property name="font">
@@ -183,7 +190,7 @@ Thermal Camera</string>
       </font>
      </property>
      <property name="title">
-      <string>Extracted Breathing Signal</string>
+      <string>Nostril Temperature Change Associated with Breathing</string>
      </property>
      <layout class="QHBoxLayout" name="horizontalLayout_2">
       <item>
@@ -191,13 +198,13 @@ Thermal Camera</string>
         <property name="minimumSize">
          <size>
           <width>982</width>
-          <height>300</height>
+          <height>320</height>
          </size>
         </property>
         <property name="maximumSize">
          <size>
-          <width>982</width>
-          <height>300</height>
+          <width>1200</width>
+          <height>320</height>
          </size>
         </property>
         <property name="font">
@@ -220,6 +227,12 @@ Thermal Camera</string>
        <horstretch>0</horstretch>
        <verstretch>0</verstretch>
       </sizepolicy>
+     </property>
+     <property name="maximumSize">
+      <size>
+       <width>800</width>
+       <height>450</height>
+      </size>
      </property>
      <property name="font">
       <font>

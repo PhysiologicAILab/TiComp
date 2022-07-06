@@ -40,8 +40,12 @@ class TIComp(QWidget):
 
         self.tcamObj = tcam()
 
-        trained_model_path = "seg/ckpts/Seg_GCL_Our-Strategy_DeepLab_xception_DICE_PAN_SN_SSIM_occ-True-False/Optimal_Gen.pth"
-        config_path = "seg/configs/config_Seg_GCL_DX_Occ.json"
+        # trained_model_path = "seg/ckpts/Seg_GCL_Our-Strategy_DeepLab_xception_DICE_PAN_SN_SSIM_occ-True-False/Optimal_Gen.pth"
+        # config_path = "seg/configs/config_Seg_GCL_DX_Occ.json"
+
+        trained_model_path = "seg/ckpts/Seg_GCL_5Jul_Our-Strategy_DeepLab_xception_DICE_PAN_SN_SSIM_occ-True-False/Optimal_Gen.pth"
+        config_path = "seg/configs/Seg_GCL_5Jul_Our-Strategy_DeepLab_xception_DICE_PAN_SN_SSIM_occ-True-False/config_Seg_GCL_DX_Occ.json"
+
         self.segObj = ThermSeg(trained_model_path, config_path)
         self.seg_img_width = 256
         self.seg_img_height = 256
@@ -135,29 +139,29 @@ class TIComp(QWidget):
                 # self.setCentralWidget(self.plotWidget)
                 self.plotWidget.setBackground('w')
 
-            self.resp_time_axis = list(range(200))  # 200 time points
-            self.resp_data = np.zeros([200, ])  # 200 data points
+            self.resp_time_axis = list(range(500))  # 500 time points
+            self.resp_plot_data = np.zeros([500, ])  # 500 data points
             pen = pg.mkPen(color=(0, 0, 0))
-            self.data_line = self.plotWidget.plot(self.resp_time_axis, self.resp_data, pen=pen)
+            self.data_line = self.plotWidget.plot(self.resp_time_axis, self.resp_plot_data, pen=pen)
 
             extract_breathing_signal = True
             self.ui.signalExtractionButton.setText("Stop Extracting Signal")
         else:
-            self.resp_data = None
+            self.resp_plot_data = None
             extract_breathing_signal = False
             self.ui.signalExtractionButton.setText("Extract and Plot Breathing Signal")
 
     def addRespData(self, respVal):
         global extract_breathing_signal
         if extract_breathing_signal:
-            self.resp_data = np.append(self.resp_data, respVal)
-            self.resp_data = np.delete(self.resp_data, [0])
+            self.resp_plot_data = np.append(self.resp_plot_data, respVal)
+            self.resp_plot_data = np.delete(self.resp_plot_data, [0])
 
             # self.resp_time_axis = self.resp_time_axis[1:]  # Remove the first y element.
             # # Add a new value 1 higher than the last.
             # self.resp_time_axis.append(self.resp_time_axis[-1] + 1)
 
-            self.data_line.setData(self.resp_time_axis, self.resp_data)  # Update the data.
+            self.data_line.setData(self.resp_time_axis, self.resp_plot_data)  # Update the data.
 
 
 # Setup a signal slot mechanism, to send data to GUI in a thread-safe way.
@@ -192,20 +196,27 @@ def capture_frame_thread(tcamObj, segObj, updatePixmap, updateLog, addRespData):
                         pred_seg_mask = ((pred_seg_mask/ 3.0) + 1.0)
                         img_array = copy.deepcopy(thermal_matrix)
                         img_array = img_array * pred_seg_mask
-                        time_taken = np.round(time_taken, 4)
+                        time_taken = np.round(time_taken, 3)
                         info_str = "[Min Temp, Max Temp, Inference Time] = " + str([min_temp, max_temp, time_taken])
 
                         if extract_breathing_signal:
                             bbox_corners = np.argwhere(pred_seg_mask_org == nose_label)
-                            nose_pix_min_y, nose_pix_min_x = bbox_corners.min(0)
-                            nose_pix_max_y, nose_pix_max_x = bbox_corners.max(0)
-                            nostril_box = thermal_matrix[nose_pix_min_x:nose_pix_max_x, nose_pix_max_y-50:nose_pix_max_y]
-                            respVal = np.mean(nostril_box)
-                            info_str = info_str + "; " + str([bbox_corners.min(0), bbox_corners.max(0)])
-                            # respVal = np.mean(thermal_matrix[pred_seg_mask_org == nose_label])
-                            # info_str = info_str + "; Nostril extraction failed, using whole nose mask"
+                            if bbox_corners.size > 0:
+                                nose_pix_min_y, nose_pix_min_x = bbox_corners.min(0)
+                                nose_pix_max_y, nose_pix_max_x = bbox_corners.max(0)
+                                nostril_box = thermal_matrix[nose_pix_min_x:nose_pix_max_x, nose_pix_max_y-50:nose_pix_max_y]
+                                respVal = np.mean(nostril_box)
+                                info_str = info_str + "; " + str([bbox_corners.min(0), bbox_corners.max(0)])
+                            else:
+                                nose_mask = thermal_matrix[pred_seg_mask_org == nose_label]
+                                if nose_mask.size > 0:
+                                    respVal = np.mean(nose_mask)
+                                    info_str = info_str + "; Nostril extraction failed, using whole nose mask"
+                                else:
+                                    respVal = max_temp
+                                    info_str = info_str + "; Nose not detected!!"
                             mySrc.resp_signal.emit(respVal)
-                            
+
                     else:
                         img_array = thermal_matrix
                         info_str = "[Min Temp, Max Temp] = " + str([min_temp, max_temp])

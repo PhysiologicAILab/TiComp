@@ -173,15 +173,14 @@ class CameraManager():
 
         #  Ensure image completion
         if image_result.IsIncomplete():
-            status = str(image_result.GetImageStatus())
+            frame_status = str(image_result.GetImageStatus())
+            print("Invalid frame:", frame_status)
         else:
             # Getting the image data as a numpy array
             thermal_matrix = image_result.GetNDArray()
+            thermal_matrix = (thermal_matrix * 0.04) - 273.15
 
         image_result.Release()
-
-        thermal_matrix = (thermal_matrix * 0.04) - 273.15
-
         return thermal_matrix, frame_status
 
     def release_camera(self, acquisition_status):
