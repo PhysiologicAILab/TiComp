@@ -1,0 +1,37 @@
+{
+    "hp": {
+        "lr_gen": 5e-3,
+        "lr_critic": 1e-4,
+        "epochs": 300,
+        "batch_size": 8,
+        "save_cp": true,
+        "n_channels": 1,
+        "n_classes": 2,
+        "class_weights": [1.0, 1.0],
+        "mode": "therm",
+        "use_our_strategy": true,
+        "critic_mode": "PAN_SN",
+        "feature_loss_fn": "SSIM",
+        "seg_loss": "DICE",
+        "gen_arch": "DeepLab_xception",
+        "apply_aug": true,
+        "apply_geo_transforms": true,
+        "apply_thermal_random_noise": true,
+        "apply_aug_occlusion": true,
+        "learn_occlusion_maps": false,
+        "load_weights_strict": true,
+        "tag": "Seg_GCL_F4ROI"
+    },
+    "dir_paths": {
+        "train_matrix": "train/",
+        "train_masks": "train_face_masks/",
+        "validate_matrix": "valid/",
+        "validate_masks": "valid_face_masks/",
+        "test_matrix": "valid/",
+        "test_masks": "valid_face_masks/",
+        "logdir": "runs/FaceROI/",
+        "ckpt": "ckpts/FaceROI/",
+        "ckpt_num": -1,
+        "eval": "eval/"
+    }
+}

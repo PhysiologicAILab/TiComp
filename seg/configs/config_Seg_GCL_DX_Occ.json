@@ -1,0 +1,37 @@
+{
+    "hp": {
+        "lr_gen": 5e-3,
+        "lr_critic": 1e-4,
+        "epochs": 300,
+        "batch_size": 8,
+        "save_cp": true,
+        "n_channels": 1,
+        "n_classes": 6,
+        "class_weights": [1.15846487, 9.81275935, 86.66017426, 198.19022128, 150.40650585, 85.85971231],
+        "mode": "therm",
+        "use_our_strategy": true,
+        "critic_mode": "PAN_SN",
+        "feature_loss_fn": "SSIM",
+        "seg_loss": "DICE",
+        "gen_arch": "DeepLab_xception",
+        "apply_aug": true,
+        "apply_geo_transforms": true,
+        "apply_thermal_random_noise": true,
+        "apply_aug_occlusion": true,
+        "learn_occlusion_maps": false,
+        "load_weights_strict": true,
+        "tag": "Seg_GCL"
+    },
+    "dir_paths": {
+        "train_matrix": "train/",
+        "train_masks": "train_masks/",
+        "validate_matrix": "valid/",
+        "validate_masks": "valid_masks/",
+        "test_matrix": "valid/",
+        "test_masks": "valid_masks/",
+        "logdir": "runs/",
+        "ckpt": "ckpts/",
+        "ckpt_num": -1,
+        "eval": "eval/"
+    }
+}
