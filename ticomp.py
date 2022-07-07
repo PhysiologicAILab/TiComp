@@ -8,6 +8,7 @@ import numpy as np
 import copy
 
 from utils.flircamera import CameraManager as tcam
+from utils.signal_processing_lib import lFilter
 from seg.inference import ThermSeg
 
 from PySide6.QtWidgets import QApplication, QWidget, QGraphicsScene
@@ -55,6 +56,10 @@ class TIComp(QWidget):
         self.ui.segButton.pressed.connect(self.perform_segmentation_control)
         self.ui.signalExtractionButton.pressed.connect(self.extract_signal_control)
         self.resp_plot_initialized = False
+
+        # self.fps = 50.0
+        self.fps = 30.0
+        self.lFilterObj = lFilter(0.05, 1.0, sample_rate=self.fps)
 
         self.imgAcqLoop = threading.Thread(name='imgAcqLoop', target=capture_frame_thread, daemon=True, args=(
             self.tcamObj, self.segObj, self.updatePixmap, self.updateLog, self.addRespData))
@@ -135,15 +140,19 @@ class TIComp(QWidget):
                 scene = QGraphicsScene()
                 self.ui.graphicsView_resp.setScene(scene)
                 self.plotWidget = pg.PlotWidget()
+                self.x_ax = self.plotWidget.getAxis('bottom')
                 proxy_widget = scene.addWidget(self.plotWidget)
                 # self.setCentralWidget(self.plotWidget)
                 self.plotWidget.setBackground('w')
 
-            self.resp_time_axis = list(range(500))  # 500 time points
-            self.resp_plot_data = np.zeros([500, ])  # 500 data points
+            self.resp_time_axis = list(range(300))  # 300 time points
+            self.resp_plot_data = np.zeros([300, ], dtype=float)  # 300 data points
+            self.resp_signal = np.array([], dtype=float)
             pen = pg.mkPen(color=(0, 0, 0))
             self.data_line = self.plotWidget.plot(self.resp_time_axis, self.resp_plot_data, pen=pen)
-
+            # self.plotWidget.setRange(xRange=(0, 300), yRange=(-1, 1))
+            self.plotWidget.enableAutoRange()
+            # self.plotWidget.
             extract_breathing_signal = True
             self.ui.signalExtractionButton.setText("Stop Extracting Signal")
         else:
@@ -153,9 +162,12 @@ class TIComp(QWidget):
 
     def addRespData(self, respVal):
         global extract_breathing_signal
-        if extract_breathing_signal:
-            self.resp_plot_data = np.append(self.resp_plot_data, respVal)
+        if extract_breathing_signal and respVal != 0:
+            filtered_respVal = self.lFilterObj.lfilt(respVal)
+            # filtered_respVal = respVal
+            self.resp_plot_data = np.append(self.resp_plot_data, filtered_respVal)
             self.resp_plot_data = np.delete(self.resp_plot_data, [0])
+            # self.resp_signal = np.append(self.resp_signal, filtered_respVal)
 
             # self.resp_time_axis = self.resp_time_axis[1:]  # Remove the first y element.
             # # Add a new value 1 higher than the last.
@@ -184,9 +196,11 @@ def capture_frame_thread(tcamObj, segObj, updatePixmap, updateLog, addRespData):
     while True:
         if keep_acquisition_thread:
             if camera_connect_status and acquisition_status and live_streaming_status:
+                t1 = time.time()
+                info_str = ""
                 thermal_matrix, frame_status = tcamObj.capture_frame()
 
-                if frame_status == "valid":
+                if frame_status == "valid" and thermal_matrix.size > 0:
                     min_temp = np.round(np.min(thermal_matrix), 2)
                     max_temp = np.round(np.max(thermal_matrix), 2)
 
@@ -197,16 +211,33 @@ def capture_frame_thread(tcamObj, segObj, updatePixmap, updateLog, addRespData):
                         img_array = copy.deepcopy(thermal_matrix)
                         img_array = img_array * pred_seg_mask
                         time_taken = np.round(time_taken, 3)
-                        info_str = "[Min Temp, Max Temp, Inference Time] = " + str([min_temp, max_temp, time_taken])
+                        info_str = info_str + "[Min Temp, Max Temp, Inference Time] = " + str([min_temp, max_temp, time_taken])
 
                         if extract_breathing_signal:
+                            respVal = 0
                             bbox_corners = np.argwhere(pred_seg_mask_org == nose_label)
                             if bbox_corners.size > 0:
                                 nose_pix_min_y, nose_pix_min_x = bbox_corners.min(0)
                                 nose_pix_max_y, nose_pix_max_x = bbox_corners.max(0)
-                                nostril_box = thermal_matrix[nose_pix_min_x:nose_pix_max_x, nose_pix_max_y-50:nose_pix_max_y]
-                                respVal = np.mean(nostril_box)
+                                nostril_box = thermal_matrix[nose_pix_max_y-20:nose_pix_max_y, nose_pix_min_x:nose_pix_max_x]
+                                nostril_box_label = pred_seg_mask_org[nose_pix_max_y-20:nose_pix_max_y, nose_pix_min_x:nose_pix_max_x]
+
+                                nostril_seg_matrix = nostril_box[nostril_box_label == nose_label]
+                                respVal = np.mean(nostril_seg_matrix)
                                 info_str = info_str + "; " + str([bbox_corners.min(0), bbox_corners.max(0)])
+
+                                # Highlight the nostril segmentation
+                                nostril_seg_mask = copy.deepcopy(pred_seg_mask_org)
+                                nostril_seg_mask[nostril_seg_mask != nose_label] = 0
+                                nostril_seg_mask[nostril_seg_mask == nose_label] = 1
+
+                                nostril_box_mask = copy.deepcopy(pred_seg_mask_org)
+                                nostril_box_mask[nostril_box_mask != nose_label] = 0
+                                nostril_box_mask[nose_pix_max_y-30:nose_pix_max_y, nose_pix_min_x:nose_pix_max_x] = 1
+
+                                nostril_seg_mask = nostril_seg_mask * nostril_box_mask
+
+                                img_array[nostril_seg_mask == 1] = img_array[nostril_seg_mask == 1] * 1.4
                             else:
                                 nose_mask = thermal_matrix[pred_seg_mask_org == nose_label]
                                 if nose_mask.size > 0:
@@ -227,13 +258,14 @@ def capture_frame_thread(tcamObj, segObj, updatePixmap, updateLog, addRespData):
                     img_array = img_array.astype(np.uint8)
 
                     mySrc.data_signal.emit(img_array)
-                    mySrc.status_signal.emit("Frame acquisition status: " + frame_status + "; " + info_str)
                 
-                else:
-                    mySrc.status_signal.emit("Frame acquisition status: " + frame_status)
-                
-                time.sleep(0.05)
-            
+                info_str = "Frame acquisition status: " + frame_status + "; " + info_str                
+                # time.sleep(0.05)
+                t2 = time.time()
+                t_elapsed = str(t2 - t1)
+                info_str = info_str + "; total_time_per_frame: " + t_elapsed
+                mySrc.status_signal.emit(info_str)
+
             else:
                 time.sleep(0.25)
         else:
