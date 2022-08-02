@@ -88,8 +88,8 @@
       "norm_mode": 2
     },
     "checkpoints": {
-      "checkpoints_name": "attention_unet_thermalFaceDB_seg",
-      "checkpoints_dir": "./checkpoints/thermalFaceDB",
+      "checkpoints_name": "attention_unet_none_aunet_gcl_rmi_occ",
+      "checkpoints_dir": "./seg/checkpoints/thermalFaceDB",
       "save_iters": 1000
     },
     "network":{

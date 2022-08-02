@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1353</width>
-    <height>900</height>
+    <width>1118</width>
+    <height>823</height>
    </rect>
   </property>
   <property name="minimumSize">
@@ -18,8 +18,8 @@
   </property>
   <property name="maximumSize">
    <size>
-    <width>1353</width>
-    <height>932</height>
+    <width>1118</width>
+    <height>823</height>
    </size>
   </property>
   <property name="windowTitle">
@@ -36,14 +36,14 @@
      </property>
      <property name="minimumSize">
       <size>
-       <width>300</width>
-       <height>300</height>
+       <width>0</width>
+       <height>0</height>
       </size>
      </property>
      <property name="maximumSize">
       <size>
        <width>400</width>
-       <height>400</height>
+       <height>350</height>
       </size>
      </property>
      <property name="font">
@@ -147,7 +147,7 @@ Nostril Temperature Signal</string>
      </property>
      <property name="maximumSize">
       <size>
-       <width>1920</width>
+       <width>1100</width>
        <height>80</height>
       </size>
      </property>
@@ -180,13 +180,13 @@ Nostril Temperature Signal</string>
      </property>
      <property name="minimumSize">
       <size>
-       <width>1320</width>
-       <height>300</height>
+       <width>0</width>
+       <height>0</height>
       </size>
      </property>
      <property name="maximumSize">
       <size>
-       <width>1320</width>
+       <width>1100</width>
        <height>300</height>
       </size>
      </property>
@@ -203,8 +203,8 @@ Nostril Temperature Signal</string>
        <widget class="QGraphicsView" name="graphicsView_resp">
         <property name="minimumSize">
          <size>
-          <width>1280</width>
-          <height>250</height>
+          <width>0</width>
+          <height>0</height>
          </size>
         </property>
         <property name="maximumSize">
@@ -236,7 +236,7 @@ Nostril Temperature Signal</string>
      </property>
      <property name="maximumSize">
       <size>
-       <width>900</width>
+       <width>700</width>
        <height>500</height>
       </size>
      </property>
@@ -253,13 +253,13 @@ Nostril Temperature Signal</string>
        <widget class="QLabel" name="pix_label">
         <property name="minimumSize">
          <size>
-          <width>800</width>
-          <height>400</height>
+          <width>0</width>
+          <height>0</height>
          </size>
         </property>
         <property name="maximumSize">
          <size>
-          <width>800</width>
+          <width>700</width>
           <height>400</height>
          </size>
         </property>
@@ -278,7 +278,7 @@ Nostril Temperature Signal</string>
     <widget class="QLabel" name="log_label">
      <property name="maximumSize">
       <size>
-       <width>1920</width>
+       <width>1200</width>
        <height>100</height>
       </size>
      </property>

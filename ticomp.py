@@ -6,6 +6,8 @@ import threading
 import time
 import numpy as np
 import copy
+import argparse
+from seg.utils.configer import Configer
 
 from utils.flircamera import CameraManager as tcam
 from utils.signal_processing_lib import lFilter
@@ -28,11 +30,17 @@ extract_breathing_signal = False
 nose_label = 5
 
 class TIComp(QWidget):
-    def __init__(self):
+    def __init__(self, configer):
         super(TIComp, self).__init__()
-        self.load_ui()
+        self.load_ui(configer)
 
-    def load_ui(self):
+    def load_ui(self, configer):
+        self.configer = configer
+
+        ckpt_root = self.configer.get('checkpoints', 'checkpoints_dir')
+        ckpt_name = self.configer.get('checkpoints', 'checkpoints_name')
+        self.configer.update(['network', 'resume'], os.path.join(ckpt_root, ckpt_name + '_max_performance.pth' ))
+
         loader = QUiLoader()
         path = os.fspath(Path(__file__).resolve().parent / "form.ui")
         ui_file = QFile(path)
@@ -43,13 +51,13 @@ class TIComp(QWidget):
 
         # trained_model_path = "seg/ckpts/Seg_GCL_Our-Strategy_DeepLab_xception_DICE_PAN_SN_SSIM_occ-True-False/Optimal_Gen.pth"
         # config_path = "seg/configs/config_Seg_GCL_DX_Occ.json"
+        # trained_model_path = "seg/ckpts/Seg_GCL_5Jul_Our-Strategy_DeepLab_xception_DICE_PAN_SN_SSIM_occ-True-False/Optimal_Gen.pth"
+        # config_path = "seg/configs/Seg_GCL_5Jul_Our-Strategy_DeepLab_xception_DICE_PAN_SN_SSIM_occ-True-False/config_Seg_GCL_DX_Occ.json"
 
-        trained_model_path = "seg/ckpts/Seg_GCL_5Jul_Our-Strategy_DeepLab_xception_DICE_PAN_SN_SSIM_occ-True-False/Optimal_Gen.pth"
-        config_path = "seg/configs/Seg_GCL_5Jul_Our-Strategy_DeepLab_xception_DICE_PAN_SN_SSIM_occ-True-False/config_Seg_GCL_DX_Occ.json"
-
-        self.segObj = ThermSeg(trained_model_path, config_path)
-        self.seg_img_width = 256
-        self.seg_img_height = 256
+        self.segObj = ThermSeg(self.configer)
+        input_size = self.configer.get('test', 'data_transformer')['input_size']
+        self.seg_img_width = input_size[0]
+        self.seg_img_height = input_size[1]
 
         self.ui.connectButton.pressed.connect(self.scan_and_connect_camera)
         self.ui.acquireButton.pressed.connect(self.control_acquisition)
@@ -272,8 +280,43 @@ def capture_frame_thread(tcamObj, segObj, updatePixmap, updateLog, addRespData):
             mySrc.status_signal.emit("Acquisition thread termination. Please restart the application...")
             break
 
+
+def str2bool(v):
+    """ Usage:
+    parser.add_argument('--pretrained', type=str2bool, nargs='?', const=True,
+                        dest='pretrained', help='Whether to use pretrained models.')
+    """
+    if v.lower() in ('yes', 'true', 't', 'y', '1'):
+        return True
+    elif v.lower() in ('no', 'false', 'f', 'n', '0'):
+        return False
+    else:
+        raise argparse.ArgumentTypeError('Unsupported value encountered.')
+
+
 if __name__ == "__main__":
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--configs', default=None, type=str,
+                        dest='configs', help='The file of the hyper parameters.')
+    
+    parser.add_argument('--gpu', default=[0], nargs='+', type=int,
+                        dest='gpu', help='The gpu list used.')
+    parser.add_argument('--gathered', type=str2bool, nargs='?', default=True,
+                        dest='network:gathered', help='Whether to gather the output of model.')
+    parser.add_argument('--resume', default=None, type=str,
+                        dest='network:resume', help='The path of checkpoints.')
+    parser.add_argument('--resume_strict', type=str2bool, nargs='?', default=True,
+                        dest='network:resume_strict', help='Fully match keys or not.')
+    parser.add_argument('--resume_continue', type=str2bool, nargs='?', default=False,
+                        dest='network:resume_continue', help='Whether to continue training.')
+
+    parser.add_argument('REMAIN', nargs='*')
+
+    args_parser = parser.parse_args()
+    configer = Configer(args_parser=args_parser)
+
     app = QApplication([])
-    widget = TIComp()
+    widget = TIComp(configer=configer)
     widget.show()
     sys.exit(app.exec())
