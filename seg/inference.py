@@ -75,10 +75,10 @@ class ThermSeg():
 
         # print("Input Image Shape:", input_img.shape)
 
-        # # 60 FPS A35SC camera - 320x256
-        # x0, x1 = 32, input_img.shape[1]-32
-        # y0, y1 = 0, input_img.shape[0]
-        # input_img = input_img[y0:y1, x0:x1]
+        # 60 FPS A35SC camera - 320x256
+        x0, x1 = 32, input_img.shape[1]-32
+        y0, y1 = 0, input_img.shape[0]
+        input_img = input_img[y0:y1, x0:x1]
 
         # # 30 FPS A65SC camera - 640x512
         # x0, x1 = 64, input_img.shape[1]-64
@@ -87,13 +87,13 @@ class ThermSeg():
         # input_img = resize(input_img, (256, 256))
         # # print("New Image Shape:", input_img.shape)
 
-        # 30 FPS A65SC camera - 640x512
-        x0, x1 = 192, input_img.shape[1]-192
-        y0, y1 = 128, input_img.shape[0]-128
-        input_img = input_img[y0:y1, x0:x1]
-        # input_img = resize(input_img, (256, 256))
-        input_img = np.fliplr(input_img)
-        # print("New Image Shape:", input_img.shape)
+        # # 30 FPS A65SC camera - 640x512
+        # x0, x1 = 192, input_img.shape[1]-192
+        # y0, y1 = 128, input_img.shape[0]-128
+        # input_img = input_img[y0:y1, x0:x1]
+        # # input_img = resize(input_img, (256, 256))
+        # input_img = np.fliplr(input_img)
+        # # print("New Image Shape:", input_img.shape)
 
         input_img_org = copy.deepcopy(input_img)
 
