@@ -183,6 +183,51 @@ class TIComp(QWidget):
 
             self.data_line.setData(self.resp_time_axis, self.resp_plot_data)  # Update the data.
 
+def perform_seg(thermal_matrix):
+    thermal_matrix, pred_seg_mask, time_taken = segObj.run_inference(thermal_matrix)
+    pred_seg_mask_org = copy.deepcopy(pred_seg_mask)
+    pred_seg_mask = ((pred_seg_mask/ 3.0) + 1.0)
+    img_array = copy.deepcopy(thermal_matrix)
+    img_array = img_array * pred_seg_mask
+    time_taken = np.round(time_taken, 3)
+    info_str = info_str + "[Min Temp, Max Temp, Inference Time] = " + str([min_temp, max_temp, time_taken])
+
+    if extract_breathing_signal:
+        respVal = 0
+        bbox_corners = np.argwhere(pred_seg_mask_org == nose_label)
+        if bbox_corners.size > 0:
+            nose_pix_min_y, nose_pix_min_x = bbox_corners.min(0)
+            nose_pix_max_y, nose_pix_max_x = bbox_corners.max(0)
+            nostril_box = thermal_matrix[nose_pix_max_y-20:nose_pix_max_y, nose_pix_min_x:nose_pix_max_x]
+            nostril_box_label = pred_seg_mask_org[nose_pix_max_y-20:nose_pix_max_y, nose_pix_min_x:nose_pix_max_x]
+
+            nostril_seg_matrix = nostril_box[nostril_box_label == nose_label]
+            respVal = np.mean(nostril_seg_matrix)
+            info_str = info_str + "; " + str([bbox_corners.min(0), bbox_corners.max(0)])
+
+            # Highlight the nostril segmentation
+            nostril_seg_mask = copy.deepcopy(pred_seg_mask_org)
+            nostril_seg_mask[nostril_seg_mask != nose_label] = 0
+            nostril_seg_mask[nostril_seg_mask == nose_label] = 1
+
+            nostril_box_mask = copy.deepcopy(pred_seg_mask_org)
+            nostril_box_mask[nostril_box_mask != nose_label] = 0
+            nostril_box_mask[nose_pix_max_y-30:nose_pix_max_y, nose_pix_min_x:nose_pix_max_x] = 1
+
+            nostril_seg_mask = nostril_seg_mask * nostril_box_mask
+
+            img_array[nostril_seg_mask == 1] = img_array[nostril_seg_mask == 1] * 1.4
+        else:
+            nose_mask = thermal_matrix[pred_seg_mask_org == nose_label]
+            if nose_mask.size > 0:
+                respVal = np.mean(nose_mask)
+                info_str = info_str + "; Nostril extraction failed, using whole nose mask"
+            else:
+                respVal = max_temp
+                info_str = info_str + "; Nose not detected!!"
+        mySrc.resp_signal.emit(respVal)
+
+
 
 # Setup a signal slot mechanism, to send data to GUI in a thread-safe way.
 class Communicate(QObject):
