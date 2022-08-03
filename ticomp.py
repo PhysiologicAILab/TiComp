@@ -48,12 +48,6 @@ class TIComp(QWidget):
         self.ui = loader.load(ui_file, self)
 
         self.tcamObj = tcam()
-
-        # trained_model_path = "seg/ckpts/Seg_GCL_Our-Strategy_DeepLab_xception_DICE_PAN_SN_SSIM_occ-True-False/Optimal_Gen.pth"
-        # config_path = "seg/configs/config_Seg_GCL_DX_Occ.json"
-        # trained_model_path = "seg/ckpts/Seg_GCL_5Jul_Our-Strategy_DeepLab_xception_DICE_PAN_SN_SSIM_occ-True-False/Optimal_Gen.pth"
-        # config_path = "seg/configs/Seg_GCL_5Jul_Our-Strategy_DeepLab_xception_DICE_PAN_SN_SSIM_occ-True-False/config_Seg_GCL_DX_Occ.json"
-
         self.segObj = ThermSeg(self.configer)
         input_size = self.configer.get('test', 'data_transformer')['input_size']
         self.seg_img_width = input_size[0]

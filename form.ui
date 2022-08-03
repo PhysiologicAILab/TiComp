@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>918</width>
+    <width>1018</width>
     <height>756</height>
    </rect>
   </property>
@@ -43,7 +43,7 @@
      <property name="maximumSize">
       <size>
        <width>350</width>
-       <height>350</height>
+       <height>400</height>
       </size>
      </property>
      <property name="font">
@@ -63,7 +63,7 @@
          </font>
         </property>
         <property name="currentIndex">
-         <number>1</number>
+         <number>0</number>
         </property>
         <widget class="QWidget" name="tab">
          <attribute name="title">
@@ -225,7 +225,7 @@ Nostril Temperature Signal</string>
      </property>
      <property name="maximumSize">
       <size>
-       <width>900</width>
+       <width>1000</width>
        <height>70</height>
       </size>
      </property>
@@ -264,7 +264,7 @@ Nostril Temperature Signal</string>
      </property>
      <property name="maximumSize">
       <size>
-       <width>900</width>
+       <width>1000</width>
        <height>320</height>
       </size>
      </property>
@@ -287,7 +287,7 @@ Nostril Temperature Signal</string>
         </property>
         <property name="maximumSize">
          <size>
-          <width>900</width>
+          <width>1000</width>
           <height>300</height>
          </size>
         </property>
@@ -343,8 +343,8 @@ Nostril Temperature Signal</string>
         </property>
         <property name="maximumSize">
          <size>
-          <width>640</width>
-          <height>512</height>
+          <width>600</width>
+          <height>450</height>
          </size>
         </property>
         <property name="font">
