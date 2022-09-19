@@ -20,14 +20,18 @@ from PySide6.QtGui import QPixmap, QImage
 import pyqtgraph as pg
 
 
-global camera_connect_status, acquisition_status, live_streaming_status, keep_acquisition_thread, perform_seg_flag, extract_breathing_signal, nose_label
+global camera_connect_status, acquisition_status, live_streaming_status, keep_acquisition_thread
+global perform_seg_flag, extract_breathing_signal, nose_label, recording_status, save_path, num_frames
 acquisition_status = False
 live_streaming_status = False
+recording_status = False
 camera_connect_status = False
 keep_acquisition_thread = True
 perform_seg_flag = False
 extract_breathing_signal = False
 nose_label = 5
+save_path = "recorded_frames"
+num_frames = 0
 
 class TIComp(QWidget):
     def __init__(self, configer):
@@ -40,7 +44,7 @@ class TIComp(QWidget):
         ckpt_root = self.configer.get('checkpoints', 'checkpoints_dir')
         ckpt_name = self.configer.get('checkpoints', 'checkpoints_name')
         self.configer.update(['network', 'resume'], os.path.join(ckpt_root, ckpt_name + '_max_performance.pth' ))
-
+        
         loader = QUiLoader()
         path = os.fspath(Path(__file__).resolve().parent / "form.ui")
         ui_file = QFile(path)
@@ -55,6 +59,7 @@ class TIComp(QWidget):
 
         self.ui.connectButton.pressed.connect(self.scan_and_connect_camera)
         self.ui.acquireButton.pressed.connect(self.control_acquisition)
+        self.ui.recordButton.pressed.connect(self.control_recording)
         self.ui.segButton.pressed.connect(self.perform_segmentation_control)
         self.ui.signalExtractionButton.pressed.connect(self.extract_signal_control)
         self.resp_plot_initialized = False
@@ -102,16 +107,30 @@ class TIComp(QWidget):
                 self.ui.connectButton.setText("Scan and Connect \nThermal Camera")
 
     def control_acquisition(self):
-        global live_streaming_status
+        global recording_status
         if live_streaming_status == False:
-            self.ui.acquireButton.setText('Stop Live Streaming')
-            live_streaming_status = True
+            self.ui.acquireButton.setText('Stop Live\nStreaming')
+            recording_status = True
             self.updateLog("Acquisition started")
 
         else:
-            live_streaming_status = False
-            self.ui.acquireButton.setText('Start Live Streaming')
+            recording_status = False
+            self.ui.acquireButton.setText('Start Live\nStreaming')
             self.updateLog("Acquisition stopped")
+
+    def control_recording(self):
+        global live_streaming_status, save_path
+        if live_streaming_status == False:
+            if not os.path.exists(save_path):
+                os.makedirs(save_path)
+            self.ui.recordButton.setText('Stop\nRecording')
+            live_streaming_status = True
+            self.updateLog("Recording started")
+
+        else:
+            live_streaming_status = False
+            self.ui.recordButton.setText('Record\nFrames')
+            self.updateLog("Recording stopped")
 
     def updatePixmap(self, thermal_matrix):
         qimg1 = QImage(thermal_matrix.data, self.img_width, self.img_height, QImage.Format_Indexed8)
@@ -126,10 +145,10 @@ class TIComp(QWidget):
             self.img_width = self.seg_img_width
             self.img_height = self.seg_img_height
             perform_seg_flag = True
-            self.ui.segButton.setText("Stop Segmentation")
+            self.ui.segButton.setText("Stop\nSegmentation")
         else:
             perform_seg_flag = False
-            self.ui.segButton.setText("Perform Segmentation")
+            self.ui.segButton.setText("Perform\nSegmentation")
             self.img_width = self.cam_img_width
             self.img_height = self.cam_img_height
 
@@ -176,7 +195,7 @@ class TIComp(QWidget):
             # self.resp_time_axis.append(self.resp_time_axis[-1] + 1)
 
             self.data_line.setData(self.resp_time_axis, self.resp_plot_data)  # Update the data.
-
+'''
 def perform_seg(thermal_matrix):
     thermal_matrix, pred_seg_mask, time_taken = segObj.run_inference(thermal_matrix)
     pred_seg_mask_org = copy.deepcopy(pred_seg_mask)
@@ -220,24 +239,32 @@ def perform_seg(thermal_matrix):
                 respVal = max_temp
                 info_str = info_str + "; Nose not detected!!"
         mySrc.resp_signal.emit(respVal)
-
+'''
 
 
 # Setup a signal slot mechanism, to send data to GUI in a thread-safe way.
 class Communicate(QObject):
     data_signal = Signal(np.ndarray)
+    save_signal = Signal(np.ndarray)
     status_signal = Signal(str)
     resp_signal = Signal(float)
 
-
+def save_frame(thermal_matrix):
+    global num_frames, save_path
+    num_frames += 1
+    np.save(os.path.join(save_path, f'{num_frames:04d}' + '.npy'), thermal_matrix)
+    
 def capture_frame_thread(tcamObj, segObj, updatePixmap, updateLog, addRespData):
     # Setup the signal-slot mechanism.
     mySrc = Communicate()
     mySrc.data_signal.connect(updatePixmap)
     mySrc.status_signal.connect(updateLog)
     mySrc.resp_signal.connect(addRespData)
+    mySrc.save_signal.connect(save_frame)
 
-    global live_streaming_status, acquisition_status, camera_connect_status, keep_acquisition_thread, perform_seg_flag, extract_breathing_signal, nose_label
+    global live_streaming_status, acquisition_status, camera_connect_status, keep_acquisition_thread, perform_seg_flag, extract_breathing_signal
+    global nose_label
+    global recording_status
     pred_seg_mask = np.array([])
 
     while True:
@@ -250,6 +277,9 @@ def capture_frame_thread(tcamObj, segObj, updatePixmap, updateLog, addRespData):
                 if frame_status == "valid" and thermal_matrix.size > 0:
                     min_temp = np.round(np.min(thermal_matrix), 2)
                     max_temp = np.round(np.max(thermal_matrix), 2)
+ 
+                    if recording_status:
+                        mySrc.save_signal.emit(thermal_matrix)
 
                     if perform_seg_flag:
                         thermal_matrix, pred_seg_mask, time_taken = segObj.run_inference(thermal_matrix)

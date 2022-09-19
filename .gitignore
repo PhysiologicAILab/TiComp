@@ -2,12 +2,15 @@
 # ----------------------------------------------------------------------------
 
 # Checkpoints
-seg/ckpts/**
+seg/checkpoints/**
+recorded_frames
 
 __pycache__
 
 # qtcreator generated files
 *.pro.user*
+*.pyproject.*
+*_form.py
 
 # Visual Studio generated files
 *.ib_pdb_index
