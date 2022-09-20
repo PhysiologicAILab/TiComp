@@ -5,7 +5,7 @@ import cv2
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 import sys
 
-base_dir = "/home/uclic/dev/data/Demo/frames_for_demo_video/test"
+base_dir = "/home/uclic/dev/data/Demo/frames_for_demo_video"
 outdir = os.path.join(base_dir, 'out')
 if not os.path.exists(outdir):
     os.makedirs(outdir)
@@ -17,7 +17,7 @@ raw_ext = '.npy'
 img_ext = '.jpg'
 fnames = os.listdir(os.path.join(base_dir, data_path_sota))
 total_frame_count = len(fnames)
-video = cv2.VideoWriter('video.avi', cv2.VideoWriter_fourcc('M', 'J', 'P', 'G'), 60, (400, 1200))
+# video = cv2.VideoWriter('video.avi', cv2.VideoWriter_fourcc('M', 'J', 'P', 'G'), 60, (400, 1200))
 fig, ax = plt.subplots(nrows=1, ncols=3, figsize=(12, 4))
 
 '''
@@ -51,23 +51,23 @@ for i in range(total_frame_count):
 
     plt.tight_layout()
     # # plt.show()
-    # plt.savefig(os.path.join(outdir, fn+'.jpg'))
+    plt.savefig(os.path.join(outdir, fn+'.jpg'))
     # break
     # put pixel buffer in numpy array
-    canvas = FigureCanvas(fig)
-    canvas.draw()
-    mat = np.array(canvas.renderer._renderer)
-    mat = cv2.cvtColor(mat, cv2.COLOR_RGB2BGR)
+    # canvas = FigureCanvas(fig)
+    # canvas.draw()
+    # mat = np.array(canvas.renderer._renderer)
+    # mat = cv2.cvtColor(mat, cv2.COLOR_RGB2BGR)
 
     # # write frame to video
-    video.write(mat)
+    # video.write(mat)
     sys.stdout.write("Processing: " + str(i) + " of " + str(total_frame_count) + "\r")
     sys.stdout.flush()
 
-    plt.close()
+    # plt.close()
     # plt.cla()
 
 
-# close video writer
-cv2.destroyAllWindows()
-video.release()
+# # close video writer
+# cv2.destroyAllWindows()
+# video.release()
