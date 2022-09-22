@@ -27,10 +27,14 @@ total_frame_count = len(fnames)
 # video = cv2.VideoWriter('video.avi', cv2.VideoWriter_fourcc('M', 'J', 'P', 'G'), 60, (400, 1200))
 
 '''
-#ffmpeg -i %04d.jpg -c:v libx264 -r 60 -pix_fmt yuv420p SAM-CL_Demo.mp4
-ffmpeg -pattern_type glob -i '*.jpg' -c:v libx264 -framerate 30 -filter:v "setpts=PTS/4" SAM-CL_Demo.mp4
-# ffmpeg -i SAM-CL_Demo.mp4 SAM-CL_Demo.gif
-ffmpeg -i SAM-CL_Demo.mp4 -vf "fps=30,split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse" -loop 0 SAM-CL_Demo.gif
+Generate .mp4 from many image frames
+    ffmpeg -pattern_type glob -i '*.jpg' -c:v libx264 -framerate 30 -filter:v "setpts=PTS/4" SAM-CL_Demo.mp4
+
+Generate .gif from .mp4
+    filters="fps=15,scale=1200:-1:flags=lanczos"
+    ffmpeg -i SAM-CL_Demo.mp4 -vf "$filters,palettegen" -y $palette
+    ffmpeg -i SAM-CL_Demo.mp4 -i $palette -lavfi "$filters [x]; [x][1:v] paletteuse" -y SAM-CL_Demo.gif
+
 see -> https://superuser.com/questions/556029/how-do-i-convert-a-video-to-gif-using-ffmpeg-with-reasonable-quality
 '''
 
@@ -54,7 +58,6 @@ for i in range(total_frame_count):
 
     fig = plt.figure(figsize=(15, 3.5), tight_layout=True)
     spec = gridspec.GridSpec(nrows=1, ncols=5, figure=fig)
-    # fig, ax = plt.subplots(nrows=1, ncols=5, figsize=(12, 2.5), squeeze=True)
 
     ax_0 = fig.add_subplot(spec[0, 0])
     ax_0.imshow(img, cmap='gray')
@@ -93,6 +96,7 @@ for i in range(total_frame_count):
 
     # # write frame to video
     # video.write(mat)
+    
     sys.stdout.write("Processing: " + str(i) + " of " + str(total_frame_count) + "\r")
     sys.stdout.flush()
 
