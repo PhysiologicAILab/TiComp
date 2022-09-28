@@ -4,6 +4,7 @@ from pathlib import Path
 import sys
 import threading
 import time
+import datetime
 import numpy as np
 import copy
 import argparse
@@ -18,10 +19,12 @@ from PySide6.QtCore import QFile, QObject, Signal
 from PySide6.QtUiTools import QUiLoader
 from PySide6.QtGui import QPixmap, QImage
 import pyqtgraph as pg
+from pathlib import Path
+home_dir = str(Path.home())
 
 
 global camera_connect_status, acquisition_status, live_streaming_status, keep_acquisition_thread
-global perform_seg_flag, extract_breathing_signal, nose_label, recording_status, save_path, num_frames
+global perform_seg_flag, extract_breathing_signal, nose_label, recording_status, save_path, num_frames, subdir_path
 acquisition_status = False
 live_streaming_status = False
 recording_status = False
@@ -34,22 +37,31 @@ save_path = "recorded_frames"
 num_frames = 0
 
 class TIComp(QWidget):
-    def __init__(self, configer):
+    def __init__(self, args_parser):
         super(TIComp, self).__init__()
-        self.load_ui(configer)
+        self.load_ui(args_parser)
 
-    def load_ui(self, configer):
-        self.configer = configer
-
-        ckpt_root = self.configer.get('checkpoints', 'checkpoints_dir')
-        ckpt_name = self.configer.get('checkpoints', 'checkpoints_name')
-        self.configer.update(['network', 'resume'], os.path.join(ckpt_root, ckpt_name + '_max_performance.pth' ))
+    def load_ui(self, args_parser):
+        self.args_parser = args_parser
         
         loader = QUiLoader()
         path = os.fspath(Path(__file__).resolve().parent / "form.ui")
         ui_file = QFile(path)
         ui_file.open(QFile.ReadOnly)
         self.ui = loader.load(ui_file, self)
+
+        model_selection = str(self.ui.selectModelButton.currentText())
+        if model_selection == 'SAM-CL':
+            self.args_parser.configs = 'seg/configs/AU_GCL_RMI_Occ.json'
+        elif model_selection == 'SOTA':
+            self.args_parser.configs = 'seg/configs/AU_Base.json'
+        else:
+            self.args_parser.configs = 'seg/configs/AU_GCL_RMI_Occ.json'
+
+        self.configer = Configer(args_parser=self.args_parser)
+        ckpt_root = self.configer.get('checkpoints', 'checkpoints_dir')
+        ckpt_name = self.configer.get('checkpoints', 'checkpoints_name')
+        self.configer.update(['network', 'resume'], os.path.join(ckpt_root, ckpt_name + '_max_performance.pth'))
 
         self.tcamObj = tcam()
         self.segObj = ThermSeg(self.configer)
@@ -62,6 +74,12 @@ class TIComp(QWidget):
         self.ui.recordButton.pressed.connect(self.control_recording)
         self.ui.segButton.pressed.connect(self.perform_segmentation_control)
         self.ui.signalExtractionButton.pressed.connect(self.extract_signal_control)
+        self.ui.selectModelButton.currentIndexChanged.connect(self.updateSegModel)
+        self.ui.acquireButton.setEnabled(False)
+        self.ui.selectModelButton.setEnabled(False)
+        self.ui.recordButton.setEnabled(False)
+        self.ui.segButton.setEnabled(False)
+        self.ui.signalExtractionButton.setEnabled(False)
         self.resp_plot_initialized = False
 
         # self.fps = 50.0
@@ -98,37 +116,50 @@ class TIComp(QWidget):
 
         if camera_connect_status:
             if acquisition_status == False:
+                self.ui.acquireButton.setEnabled(True)
                 acquisition_status = True
+                self.ui.label_2.setText("Camera Serial Number: " + self.cam_serial_number)
                 self.ui.connectButton.setText("Disconnect Camera")
                 self.tcamObj.begin_acquisition()
             else:
+                self.ui.acquireButton.setEnabled(False)
                 self.tcamObj.end_acquisition()
                 acquisition_status = False
+                self.ui.label_2.setText('---')
                 self.ui.connectButton.setText("Scan and Connect \nThermal Camera")
 
     def control_acquisition(self):
-        global recording_status
+        global live_streaming_status
         if live_streaming_status == False:
             self.ui.acquireButton.setText('Stop Live\nStreaming')
-            recording_status = True
+            live_streaming_status = True
+            self.ui.recordButton.setEnabled(True)
+            self.ui.segButton.setEnabled(True)
+            self.ui.selectModelButton.setEnabled(True)
             self.updateLog("Acquisition started")
 
         else:
-            recording_status = False
+            live_streaming_status = False
+            self.ui.recordButton.setEnabled(False)
+            self.ui.segButton.setEnabled(False)
+            self.ui.signalExtractionButton.setEnabled(False)
+            self.ui.selectModelButton.setEnabled(False)
             self.ui.acquireButton.setText('Start Live\nStreaming')
             self.updateLog("Acquisition stopped")
 
     def control_recording(self):
-        global live_streaming_status, save_path
-        if live_streaming_status == False:
-            if not os.path.exists(save_path):
-                os.makedirs(save_path)
+        global save_path, recording_status, subdir_path
+        if recording_status == False:
+            timestamp = datetime.datetime.fromtimestamp(time.time()).strftime('%Y-%m-%d_%H-%M-%S')
+            subdir_path = os.path.join(save_path, timestamp)
+            if not os.path.exists(subdir_path):
+                os.makedirs(subdir_path)
             self.ui.recordButton.setText('Stop\nRecording')
-            live_streaming_status = True
+            recording_status = True
             self.updateLog("Recording started")
 
         else:
-            live_streaming_status = False
+            recording_status = False
             self.ui.recordButton.setText('Record\nFrames')
             self.updateLog("Recording stopped")
 
@@ -145,9 +176,13 @@ class TIComp(QWidget):
             self.img_width = self.seg_img_width
             self.img_height = self.seg_img_height
             perform_seg_flag = True
+            self.ui.selectModelButton.setEnabled(False)
+            self.ui.signalExtractionButton.setEnabled(True)
             self.ui.segButton.setText("Stop\nSegmentation")
         else:
             perform_seg_flag = False
+            self.ui.selectModelButton.setEnabled(True)
+            self.ui.signalExtractionButton.setEnabled(False)
             self.ui.segButton.setText("Perform\nSegmentation")
             self.img_width = self.cam_img_width
             self.img_height = self.cam_img_height
@@ -180,6 +215,23 @@ class TIComp(QWidget):
             self.resp_plot_data = None
             extract_breathing_signal = False
             self.ui.signalExtractionButton.setText("Extract and Plot Breathing Signal")
+
+    def updateSegModel(self):
+        global live_streaming_status
+        if live_streaming_status == False:
+            model_selection = str(self.ui.selectModelButton.currentText())
+            if model_selection == 'SAM-CL':
+                self.args_parser.configs = 'seg/configs/AU_GCL_RMI_Occ.json'
+            elif model_selection == 'SOTA':
+                self.args_parser.configs = 'seg/configs/AU_Base.json'
+            else:
+                self.args_parser.configs = 'seg/configs/AU_GCL_RMI_Occ.json'
+            self.configer = Configer(args_parser=self.args_parser)
+            ckpt_root = self.configer.get('checkpoints', 'checkpoints_dir')
+            ckpt_name = self.configer.get('checkpoints', 'checkpoints_name')
+            self.configer.update(['network', 'resume'], os.path.join(ckpt_root, ckpt_name + '_max_performance.pth'))
+            self.segObj = ThermSeg(self.configer)
+
 
     def addRespData(self, respVal):
         global extract_breathing_signal
@@ -250,9 +302,9 @@ class Communicate(QObject):
     resp_signal = Signal(float)
 
 def save_frame(thermal_matrix):
-    global num_frames, save_path
+    global num_frames, subdir_path
     num_frames += 1
-    np.save(os.path.join(save_path, f'{num_frames:04d}' + '.npy'), thermal_matrix)
+    np.save(os.path.join(subdir_path, f'{num_frames:04d}' + '.npy'), thermal_matrix)
     
 def capture_frame_thread(tcamObj, segObj, updatePixmap, updateLog, addRespData):
     # Setup the signal-slot mechanism.
@@ -366,9 +418,9 @@ def str2bool(v):
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--configs', default=None, type=str,
-                        dest='configs', help='The file of the hyper parameters.')
-    
+
+    parser.add_argument('--configs', default=None, nargs='+', type=str,
+                        dest='configs', help='The path to congiguration file.')
     parser.add_argument('--gpu', default=[0], nargs='+', type=int,
                         dest='gpu', help='The gpu list used.')
     parser.add_argument('--gathered', type=str2bool, nargs='?', default=True,
@@ -383,9 +435,8 @@ if __name__ == "__main__":
     parser.add_argument('REMAIN', nargs='*')
 
     args_parser = parser.parse_args()
-    configer = Configer(args_parser=args_parser)
 
     app = QApplication([])
-    widget = TIComp(configer=configer)
+    widget = TIComp(args_parser=args_parser)
     widget.show()
     sys.exit(app.exec())

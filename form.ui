@@ -176,7 +176,7 @@ Segmentation</string>
            </widget>
           </item>
           <item row="4" column="0">
-           <widget class="QComboBox" name="comboBox">
+           <widget class="QComboBox" name="selectModelButton">
             <property name="sizePolicy">
              <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
               <horstretch>0</horstretch>
