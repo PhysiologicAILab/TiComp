@@ -13,11 +13,12 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from seg.models.attention_unet import AttU_Net
+from seg.models.attention_unet import AttU_Net, AttU_Net_Contrast
 from seg.utils.logger import Logger as Log
 
 SEG_MODEL_DICT = {
-    'attention_unet': AttU_Net
+    'attention_unet': AttU_Net,
+    'attention_unet_contrast': AttU_Net_Contrast
 }
 
 

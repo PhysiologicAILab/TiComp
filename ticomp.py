@@ -20,8 +20,9 @@ from PySide6.QtUiTools import QUiLoader
 from PySide6.QtGui import QPixmap, QImage
 import pyqtgraph as pg
 from pathlib import Path
-home_dir = str(Path.home())
-
+from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
+from matplotlib.figure import Figure
+import cv2
 
 global camera_connect_status, acquisition_status, live_streaming_status, keep_acquisition_thread
 global perform_seg_flag, extract_breathing_signal, nose_label, recording_status, save_path, num_frames, subdir_path
@@ -65,9 +66,11 @@ class TIComp(QWidget):
 
         self.tcamObj = tcam()
         self.segObj = ThermSeg(self.configer)
-        input_size = self.configer.get('test', 'data_transformer')['input_size']
-        self.seg_img_width = input_size[0]
-        self.seg_img_height = input_size[1]
+        self.segObj.load_model(self.configer)
+
+        # input_size = self.configer.get('test', 'data_transformer')['input_size']
+        self.seg_img_width = 640 #input_size[0]
+        self.seg_img_height = 480 #input_size[1]
 
         self.ui.connectButton.pressed.connect(self.scan_and_connect_camera)
         self.ui.acquireButton.pressed.connect(self.control_acquisition)
@@ -109,8 +112,8 @@ class TIComp(QWidget):
                     self.ui.connectButton.setText("Disconnect Camera")
                     self.ui.label_2.setText("Camera Serial Number: " + self.cam_serial_number)
                     camera_connect_status = True
-                    self.img_width = self.cam_img_width
-                    self.img_height = self.cam_img_height
+                    self.img_width = self.seg_img_width
+                    self.img_height = self.seg_img_height
                 else:
                     self.ui.label_2.setText("Error Setting Up Camera: " + self.cam_serial_number)
 
@@ -129,7 +132,7 @@ class TIComp(QWidget):
                 self.ui.connectButton.setText("Scan and Connect \nThermal Camera")
 
     def control_acquisition(self):
-        global live_streaming_status
+        global live_streaming_status, perform_seg_flag
         if live_streaming_status == False:
             self.ui.acquireButton.setText('Stop Live\nStreaming')
             live_streaming_status = True
@@ -140,6 +143,7 @@ class TIComp(QWidget):
 
         else:
             live_streaming_status = False
+            perform_seg_flag = False
             self.ui.recordButton.setEnabled(False)
             self.ui.segButton.setEnabled(False)
             self.ui.signalExtractionButton.setEnabled(False)
@@ -163,8 +167,10 @@ class TIComp(QWidget):
             self.ui.recordButton.setText('Record\nFrames')
             self.updateLog("Recording stopped")
 
-    def updatePixmap(self, thermal_matrix):
-        qimg1 = QImage(thermal_matrix.data, self.img_width, self.img_height, QImage.Format_Indexed8)
+    def updatePixmap(self, img_array):
+
+        img_array = cv2.cvtColor(img_array, cv2.COLOR_RGB2BGR)
+        qimg1 = QImage(img_array.data, self.img_width, self.img_height, QImage.Format_BGR888)
         self.ui.pix_label.setPixmap(QPixmap.fromImage(qimg1))
 
     def updateLog(self, message):
@@ -184,8 +190,8 @@ class TIComp(QWidget):
             self.ui.selectModelButton.setEnabled(True)
             self.ui.signalExtractionButton.setEnabled(False)
             self.ui.segButton.setText("Perform\nSegmentation")
-            self.img_width = self.cam_img_width
-            self.img_height = self.cam_img_height
+            self.img_width = self.seg_img_width
+            self.img_height = self.seg_img_height
 
     def extract_signal_control(self):
         global extract_breathing_signal
@@ -217,20 +223,19 @@ class TIComp(QWidget):
             self.ui.signalExtractionButton.setText("Extract and Plot Breathing Signal")
 
     def updateSegModel(self):
-        global live_streaming_status
-        if live_streaming_status == False:
-            model_selection = str(self.ui.selectModelButton.currentText())
-            if model_selection == 'SAM-CL':
-                self.args_parser.configs = 'seg/configs/AU_GCL_RMI_Occ.json'
-            elif model_selection == 'SOTA':
-                self.args_parser.configs = 'seg/configs/AU_Base.json'
-            else:
-                self.args_parser.configs = 'seg/configs/AU_GCL_RMI_Occ.json'
-            self.configer = Configer(args_parser=self.args_parser)
-            ckpt_root = self.configer.get('checkpoints', 'checkpoints_dir')
-            ckpt_name = self.configer.get('checkpoints', 'checkpoints_name')
-            self.configer.update(['network', 'resume'], os.path.join(ckpt_root, ckpt_name + '_max_performance.pth'))
-            self.segObj = ThermSeg(self.configer)
+        self.segObj.delete_model()
+        model_selection = str(self.ui.selectModelButton.currentText())
+        if model_selection == 'SAM-CL':
+            self.args_parser.configs = 'seg/configs/AU_GCL_RMI_Occ.json'
+        elif model_selection == 'SOTA':
+            self.args_parser.configs = 'seg/configs/AU_Base.json'
+        else:
+            self.args_parser.configs = 'seg/configs/AU_GCL_RMI_Occ.json'
+        self.configer = Configer(args_parser=self.args_parser)
+        ckpt_root = self.configer.get('checkpoints', 'checkpoints_dir')
+        ckpt_name = self.configer.get('checkpoints', 'checkpoints_name')
+        self.configer.update(['network', 'resume'], os.path.join(ckpt_root, ckpt_name + '_max_performance.pth'))
+        self.segObj.load_model(self.configer)
 
 
     def addRespData(self, respVal):
@@ -326,6 +331,10 @@ def capture_frame_thread(tcamObj, segObj, updatePixmap, updateLog, addRespData):
                 info_str = ""
                 thermal_matrix, frame_status = tcamObj.capture_frame()
 
+                fig = Figure(tight_layout=True)
+                canvas = FigureCanvas(fig)
+                ax = fig.gca()
+
                 if frame_status == "valid" and thermal_matrix.size > 0:
                     min_temp = np.round(np.min(thermal_matrix), 2)
                     max_temp = np.round(np.max(thermal_matrix), 2)
@@ -333,12 +342,13 @@ def capture_frame_thread(tcamObj, segObj, updatePixmap, updateLog, addRespData):
                     if recording_status:
                         mySrc.save_signal.emit(thermal_matrix)
 
-                    if perform_seg_flag:
+                    if perform_seg_flag and segObj.seg_net != None:
                         thermal_matrix, pred_seg_mask, time_taken = segObj.run_inference(thermal_matrix)
                         pred_seg_mask_org = copy.deepcopy(pred_seg_mask)
-                        pred_seg_mask = ((pred_seg_mask/ 3.0) + 1.0)
-                        img_array = copy.deepcopy(thermal_matrix)
-                        img_array = img_array * pred_seg_mask
+
+                        ax.imshow(thermal_matrix, cmap='gray')
+                        ax.imshow(pred_seg_mask, cmap='seismic', alpha=0.35)
+
                         time_taken = np.round(time_taken, 3)
                         info_str = info_str + "[Min Temp, Max Temp, Inference Time] = " + str([min_temp, max_temp, time_taken])
 
@@ -366,7 +376,7 @@ def capture_frame_thread(tcamObj, segObj, updatePixmap, updateLog, addRespData):
 
                                 nostril_seg_mask = nostril_seg_mask * nostril_box_mask
 
-                                img_array[nostril_seg_mask == 1] = img_array[nostril_seg_mask == 1] * 1.4
+                                # img_array[nostril_seg_mask == 1] = img_array[nostril_seg_mask == 1] * 1.4
                             else:
                                 nose_mask = thermal_matrix[pred_seg_mask_org == nose_label]
                                 if nose_mask.size > 0:
@@ -378,13 +388,18 @@ def capture_frame_thread(tcamObj, segObj, updatePixmap, updateLog, addRespData):
                             mySrc.resp_signal.emit(respVal)
 
                     else:
-                        img_array = thermal_matrix
+                        # img_array = thermal_matrix
+                        ax.imshow(thermal_matrix, cmap='bone')
                         info_str = "[Min Temp, Max Temp] = " + str([min_temp, max_temp])
 
-                    mn_val = np.min(img_array)
-                    mx_val = np.max(img_array)
-                    img_array = np.round((img_array - mn_val) / (mx_val - mn_val) * 255.0)
-                    img_array = img_array.astype(np.uint8)
+                    # mn_val = np.min(img_array)
+                    # mx_val = np.max(img_array)
+                    # img_array = np.round((img_array - mn_val) / (mx_val - mn_val) * 255.0)
+                    # img_array = img_array.astype(np.uint8)
+
+                    ax.set_axis_off()
+                    canvas.draw()
+                    img_array = np.array(canvas.renderer._renderer)
 
                     mySrc.data_signal.emit(img_array)
                 

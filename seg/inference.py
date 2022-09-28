@@ -22,22 +22,27 @@ def softmax(X, axis=0):
 
 class ThermSeg():
     def __init__(self, configer):
-
         self.configer = configer
-        self.module_runner = ModuleRunner(self.configer)
-        self.model_manager = ModelManager(self.configer)
-        self.seg_net = self.model_manager.semantic_segmentor()
-        self.seg_net = self.module_runner.load_net(self.seg_net)
-
-        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        self.mode = self.configer.get('data', 'input_mode')
-
-        self.seg_net.eval()
+        self.seg_net = None
         self.img_transform = trans.Compose([
             trans.ToTensor(),
             trans.NormalizeThermal(norm_mode=self.configer.get('normalize', 'norm_mode')), ])
         size_mode = self.configer.get('test', 'data_transformer')['size_mode']
         self.is_stack = size_mode != 'diverse_size'
+
+    def load_model(self, configer): 
+        self.module_runner = ModuleRunner(configer)
+        self.model_manager = ModelManager(configer)
+        self.seg_net = self.model_manager.semantic_segmentor()
+        self.seg_net = self.module_runner.load_net(self.seg_net)
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        self.mode = configer.get('data', 'input_mode')
+        self.seg_net.eval()
+
+    def delete_model(self):
+        if self.seg_net != None:
+            del self.seg_net
+            self.seg_net = None
 
     def run_inference(self, input_img):
 
