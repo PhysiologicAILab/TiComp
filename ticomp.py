@@ -20,8 +20,14 @@ from PySide6.QtUiTools import QUiLoader
 from PySide6.QtGui import QPixmap, QImage
 import pyqtgraph as pg
 from pathlib import Path
-from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
+
+from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas_Image
+# from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas_Plot
+from matplotlib.lines import Line2D
+from matplotlib.animation import TimedAnimation
 from matplotlib.figure import Figure
+
 import cv2
 
 global camera_connect_status, acquisition_status, live_streaming_status, keep_acquisition_thread
@@ -86,9 +92,16 @@ class TIComp(QWidget):
         self.ui.signalExtractionButton.setEnabled(False)
         self.resp_plot_initialized = False
 
-        # self.fps = 50.0
-        self.fps = 30.0
-        self.lFilterObj = lFilter(0.05, 1.0, sample_rate=self.fps)
+        # self.ui.fps = 50.0
+        self.ui.fps = 30 #update this for correct fps - that is actually achieved
+        self.lFilterObj = lFilter(0.05, 1.0, sample_rate=self.ui.fps)
+
+        # # Place the matplotlib figure
+        self.myFig = LivePlotFigCanvas(uiObj=self.ui)
+        self.graphic_scene = QGraphicsScene()
+        self.graphic_scene.addWidget(self.myFig)
+        self.ui.graphicsView_resp.setScene(self.graphic_scene)
+        self.ui.graphicsView_resp.show()
 
         self.imgAcqLoop = threading.Thread(name='imgAcqLoop', target=capture_frame_thread, daemon=True, args=(
             self.tcamObj, self.segObj, self.updatePixmap, self.updateLog, self.addRespData))
@@ -197,28 +210,10 @@ class TIComp(QWidget):
         global extract_breathing_signal
 
         if extract_breathing_signal == False:
-
-            if self.resp_plot_initialized == False:
-                scene = QGraphicsScene()
-                self.ui.graphicsView_resp.setScene(scene)
-                self.plotWidget = pg.PlotWidget()
-                self.x_ax = self.plotWidget.getAxis('bottom')
-                proxy_widget = scene.addWidget(self.plotWidget)
-                # self.setCentralWidget(self.plotWidget)
-                self.plotWidget.setBackground('w')
-
-            self.resp_time_axis = list(range(300))  # 300 time points
-            self.resp_plot_data = np.zeros([300, ], dtype=float)  # 300 data points
-            self.resp_signal = np.array([], dtype=float)
-            pen = pg.mkPen(color=(0, 0, 0))
-            self.data_line = self.plotWidget.plot(self.resp_time_axis, self.resp_plot_data, pen=pen)
-            # self.plotWidget.setRange(xRange=(0, 300), yRange=(-1, 1))
-            self.plotWidget.enableAutoRange()
-            # self.plotWidget.
             extract_breathing_signal = True
             self.ui.signalExtractionButton.setText("Stop Extracting Signal")
         else:
-            self.resp_plot_data = None
+            self.myFig.resp_plot_signal = (self.myFig.x_axis * 0.0) + 25
             extract_breathing_signal = False
             self.ui.signalExtractionButton.setText("Extract and Plot Breathing Signal")
 
@@ -226,11 +221,11 @@ class TIComp(QWidget):
         self.segObj.delete_model()
         model_selection = str(self.ui.selectModelButton.currentText())
         if model_selection == 'SAM-CL':
-            self.args_parser.configs = 'seg/configs/AU_GCL_RMI_Occ.json'
+            self.args_parser.configs = 'seg/configs/AU_GCL_RMI_Occ_High.json'
         elif model_selection == 'SOTA':
-            self.args_parser.configs = 'seg/configs/AU_Base.json'
+            self.args_parser.configs = 'seg/configs/AU_Base_High.json'
         else:
-            self.args_parser.configs = 'seg/configs/AU_GCL_RMI_Occ.json'
+            self.args_parser.configs = 'seg/configs/AU_GCL_RMI_Occ_High.json'
         self.configer = Configer(args_parser=self.args_parser)
         ckpt_root = self.configer.get('checkpoints', 'checkpoints_dir')
         ckpt_name = self.configer.get('checkpoints', 'checkpoints_name')
@@ -240,17 +235,19 @@ class TIComp(QWidget):
     def addRespData(self, respVal):
         global extract_breathing_signal
         if extract_breathing_signal and respVal != 0:
-            filtered_respVal = self.lFilterObj.lfilt(respVal)
-            # filtered_respVal = respVal
-            self.resp_plot_data = np.append(self.resp_plot_data, filtered_respVal)
-            self.resp_plot_data = np.delete(self.resp_plot_data, [0])
-            # self.resp_signal = np.append(self.resp_signal, filtered_respVal)
+            self.myFig.addData(respVal)
 
-            # self.resp_time_axis = self.resp_time_axis[1:]  # Remove the first y element.
-            # # Add a new value 1 higher than the last.
-            # self.resp_time_axis.append(self.resp_time_axis[-1] + 1)
+            # filtered_respVal = self.lFilterObj.lfilt(respVal)
+            # # filtered_respVal = respVal
+            # self.resp_plot_data = np.append(self.resp_plot_data, filtered_respVal)
+            # self.resp_plot_data = np.delete(self.resp_plot_data, [0])
+            # # self.resp_signal = np.append(self.resp_signal, filtered_respVal)
 
-            self.data_line.setData(self.resp_time_axis, self.resp_plot_data)  # Update the data.
+            # # self.resp_time_axis = self.resp_time_axis[1:]  # Remove the first y element.
+            # # # Add a new value 1 higher than the last.
+            # # self.resp_time_axis.append(self.resp_time_axis[-1] + 1)
+
+            # self.data_line.setData(self.resp_time_axis, self.resp_plot_data)  # Update the data.
 '''
 def perform_seg(thermal_matrix):
     thermal_matrix, pred_seg_mask, time_taken = segObj.run_inference(thermal_matrix)
@@ -380,13 +377,13 @@ def capture_frame_thread(tcamObj, segObj, updatePixmap, updateLog, addRespData):
                         info_str = "[Min Temp, Max Temp] = " + str([min_temp, max_temp])
 
                     fig = Figure(tight_layout=True)
-                    canvas = FigureCanvas(fig)
+                    canvas = FigureCanvas_Image(fig)
                     ax = fig.add_subplot(111)
                     if np.all(pred_seg_mask) != None:
                         ax.imshow(thermal_matrix, cmap='gray')
                         ax.imshow(pred_seg_mask, cmap='seismic', alpha=0.35)
                     else:
-                        ax.imshow(thermal_matrix, cmap='gray')
+                        ax.imshow(thermal_matrix, cmap='magma')
                     ax.set_axis_off()
                     canvas.draw()
                     width, height = fig.figbbox.width, fig.figbbox.height
@@ -404,6 +401,116 @@ def capture_frame_thread(tcamObj, segObj, updatePixmap, updateLog, addRespData):
         else:
             mySrc.status_signal.emit("Acquisition thread termination. Please restart the application...")
             break
+
+
+
+class LivePlotFigCanvas(FigureCanvas_Plot, TimedAnimation):
+    def __init__(self, uiObj):
+        self.uiObj = uiObj
+        self.added_resp_data = []
+        self.exception_count = 0
+        # print(matplotlib.__version__)
+        # The data
+        self.max_time = 30 # 30 second time window
+        self.measure_time = 5 #moving max_time sample by 1 sec.
+        self.xlim = int(self.max_time*self.uiObj.fps)
+        self.x_axis = np.linspace(0, self.xlim - 1, self.xlim)
+        self.resp_plot_signal = (self.x_axis * 0.0) + 25
+        self.x_axis = self.x_axis/self.uiObj.fps
+        # The window
+        self.fig = Figure(figsize=(23,6), dpi=50, tight_layout=True)
+
+        self.ax1 = self.fig.add_subplot(1, 1, 1)
+        # self.ax1 settings
+        self.ax1.set_xlabel('Time (seconds)', fontsize=24)
+        self.ax1.set_ylabel('Temperature', fontsize=24)
+        self.line1 = Line2D([], [], color='blue')
+        self.line1_tail = Line2D([], [], color='red', linewidth=3)
+        self.line1_head = Line2D([], [], color='red', marker='o', markeredgecolor='r')
+        self.ax1.add_line(self.line1)
+        self.ax1.add_line(self.line1_tail)
+        self.ax1.add_line(self.line1_head)
+        self.ax1.set_xlim(0, self.max_time)
+        # self.ax1.autoscale(enable=True, axis='y', tight=True)
+        self.ax1.set_ylim(5, 40)
+
+        # # Hide the right and top spines
+        # self.ax1.spines['right'].set_visible(False)
+        # self.ax1.spines['top'].set_visible(False)
+
+        # Only show ticks on the left and bottom spines
+        self.ax1.yaxis.set_ticks_position('left')
+        self.ax1.xaxis.set_ticks_position('bottom')
+
+
+        FigureCanvas_Plot.__init__(self, self.fig)
+        TimedAnimation.__init__(self, self.fig, interval=int(round(1000.0/self.uiObj.fps)), blit = True)
+
+        resp_lowcut = 0.1
+        resp_highcut = 0.4
+        filt_order = 2
+        self.resp_filt_obj = lFilter(resp_lowcut, resp_highcut, self.uiObj.fps, order=filt_order)
+        self.count_frame = 0# self.max_time * self.uiObj.fps
+        return
+
+    def new_frame_seq(self):
+        return iter(range(self.x_axis.size))
+
+    def _init_draw(self):
+        lines = [self.line1, self.line1_tail, self.line1_head]
+        for l in lines:
+            l.set_data([], [])
+        return
+
+    def addData(self, value):
+        resp_filtered = self.resp_filt_obj.lfilt(value)
+        # self.added_resp_data.append(value)
+        self.added_resp_data.append(resp_filtered)
+
+        return
+
+
+    def _step(self, *args):
+        # Extends the _step() method for the TimedAnimation class.
+        try:
+            TimedAnimation._step(self, *args)
+        except Exception as e:
+            self.exception_count += 1
+            print(str(self.exception_count))
+            TimedAnimation._stop(self)
+            pass
+        return
+
+    def _draw_frame(self, framedata):
+        global extract_breathing_signal
+        if extract_breathing_signal:   
+            margin = 2
+            while(len(self.added_resp_data) > 0):
+
+                self.resp_plot_signal = np.roll(self.resp_plot_signal, -1)
+                self.resp_plot_signal[-1] = self.added_resp_data[-1]
+                del(self.added_resp_data[0])
+
+                self.count_frame += 1
+
+            if self.count_frame >= (self.measure_time * self.uiObj.fps):
+                self.count_frame = 0
+                self.ax1.set_ylim(np.min(self.resp_plot_signal[-self.measure_time*self.uiObj.fps:]), np.max(
+                    self.resp_plot_signal[-self.measure_time*self.uiObj.fps:]))
+                
+            self.line1.set_data(self.x_axis[0: self.x_axis.size - margin],
+                                self.resp_plot_signal[0: self.x_axis.size - margin])
+            self.line1_tail.set_data(np.append(self.x_axis[-10:-1 - margin], self.x_axis[-1 - margin]), np.append(
+                self.resp_plot_signal[-10:-1 - margin], self.resp_plot_signal[-1 - margin]))
+            self.line1_head.set_data(self.x_axis[-1 - margin], self.resp_plot_signal[-1 - margin])
+
+            self._drawn_artists = [self.line1, self.line1_tail, self.line1_head]
+
+
+        return
+
+
+
 
 
 def str2bool(v):
