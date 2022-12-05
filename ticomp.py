@@ -93,7 +93,7 @@ class TIComp(QWidget):
         self.resp_plot_initialized = False
 
         # self.ui.fps = 50.0
-        self.ui.fps = 30 #update this for correct fps - that is actually achieved
+        self.ui.fps = 5 #update this for correct fps - that is actually achieved
         self.lFilterObj = lFilter(0.05, 1.0, sample_rate=self.ui.fps)
 
         # # Place the matplotlib figure
@@ -320,87 +320,100 @@ def capture_frame_thread(tcamObj, segObj, updatePixmap, updateLog, addRespData):
     global recording_status
 
     while True:
-        if keep_acquisition_thread:
-            if camera_connect_status and acquisition_status and live_streaming_status:
-                t1 = time.time()
-                info_str = ""
-                thermal_matrix, frame_status = tcamObj.capture_frame()
+        try:
+            if keep_acquisition_thread:
+                if camera_connect_status and acquisition_status and live_streaming_status:
+                    t1 = time.time()
+                    info_str = ""
+                    thermal_matrix, frame_status = tcamObj.capture_frame()
 
-                if frame_status == "valid" and thermal_matrix.size > 0:
-                    min_temp = np.round(np.min(thermal_matrix), 2)
-                    max_temp = np.round(np.max(thermal_matrix), 2)
- 
-                    if recording_status:
-                        mySrc.save_signal.emit(thermal_matrix)
+                    if frame_status == "valid" and thermal_matrix.size > 0:
+                        min_temp = np.round(np.min(thermal_matrix), 2)
+                        max_temp = np.round(np.max(thermal_matrix), 2)
+    
+                        if recording_status:
+                            mySrc.save_signal.emit(thermal_matrix)
 
-                    if perform_seg_flag and segObj.seg_net != None:
-                        thermal_matrix, pred_seg_mask, time_taken = segObj.run_inference(thermal_matrix)
-                        time_taken = np.round(time_taken, 3)
-                        info_str = info_str + "[Min Temp, Max Temp, Inference Time] = " + str([min_temp, max_temp, time_taken])
+                        if perform_seg_flag and segObj.seg_net != None:
+                            thermal_matrix, pred_seg_mask, time_taken = segObj.run_inference(thermal_matrix)
+                            time_taken = np.round(time_taken, 3)
+                            info_str = info_str + "[Min Temp, Max Temp, Inference Time] = " + str([min_temp, max_temp, time_taken])
 
-                        if extract_breathing_signal:
-                            respVal = 0
-                            bbox_corners = np.argwhere(pred_seg_mask == nose_label)
-                            if bbox_corners.size > 0:
-                                nose_pix_min_y, nose_pix_min_x = bbox_corners.min(0)
-                                nose_pix_max_y, nose_pix_max_x = bbox_corners.max(0)
-                                nostril_box = thermal_matrix[nose_pix_max_y-20:nose_pix_max_y, nose_pix_min_x:nose_pix_max_x]
-                                nostril_box_label = pred_seg_mask[nose_pix_max_y-20:nose_pix_max_y, nose_pix_min_x:nose_pix_max_x]
+                            if extract_breathing_signal:
+                                respVal = 0
+                                bbox_corners = np.argwhere(pred_seg_mask == nose_label)
+                                if bbox_corners.size > 0:
+                                    nose_pix_min_y, nose_pix_min_x = bbox_corners.min(0)
+                                    nose_pix_max_y, nose_pix_max_x = bbox_corners.max(0)
+                                    nostril_box = thermal_matrix[nose_pix_max_y-20:nose_pix_max_y, nose_pix_min_x:nose_pix_max_x]
+                                    nostril_box_label = pred_seg_mask[nose_pix_max_y-20:nose_pix_max_y, nose_pix_min_x:nose_pix_max_x]
 
-                                nostril_seg_matrix = nostril_box[nostril_box_label == nose_label]
-                                respVal = np.mean(nostril_seg_matrix)
-                                info_str = info_str + "; " + str([bbox_corners.min(0), bbox_corners.max(0)])
+                                    nostril_seg_matrix = nostril_box[nostril_box_label == nose_label]
+                                    try:
+                                        respVal = np.mean(nostril_seg_matrix)
+                                    except:
+                                        # print('Missed RoI')
+                                        pass
+                                    info_str = info_str + "; " + str([bbox_corners.min(0), bbox_corners.max(0)])
 
-                                # Highlight the nostril segmentation
-                                nostril_seg_mask = copy.deepcopy(pred_seg_mask)
-                                nostril_seg_mask[nostril_seg_mask != nose_label] = 0
-                                nostril_seg_mask[nostril_seg_mask == nose_label] = 1
+                                    # Highlight the nostril segmentation
+                                    nostril_seg_mask = copy.deepcopy(pred_seg_mask)
+                                    nostril_seg_mask[nostril_seg_mask != nose_label] = 0
+                                    nostril_seg_mask[nostril_seg_mask == nose_label] = 1
 
-                                nostril_box_mask = copy.deepcopy(pred_seg_mask)
-                                nostril_box_mask[nostril_box_mask != nose_label] = 0
-                                nostril_box_mask[nose_pix_max_y-30:nose_pix_max_y, nose_pix_min_x:nose_pix_max_x] = 1
+                                    nostril_box_mask = copy.deepcopy(pred_seg_mask)
+                                    nostril_box_mask[nostril_box_mask != nose_label] = 0
+                                    nostril_box_mask[nose_pix_max_y-30:nose_pix_max_y, nose_pix_min_x:nose_pix_max_x] = 1
 
-                                nostril_seg_mask = nostril_seg_mask * nostril_box_mask
+                                    nostril_seg_mask = nostril_seg_mask * nostril_box_mask
 
-                            else:
-                                nose_mask = thermal_matrix[pred_seg_mask == nose_label]
-                                if nose_mask.size > 0:
-                                    respVal = np.mean(nose_mask)
-                                    info_str = info_str + "; Nostril extraction failed, using whole nose mask"
                                 else:
-                                    respVal = max_temp
-                                    info_str = info_str + "; Nose not detected!!"
-                            mySrc.resp_signal.emit(respVal)
+                                    nose_mask = thermal_matrix[pred_seg_mask == nose_label]
+                                    if nose_mask.size > 0:
+                                        try:
+                                            respVal = np.mean(nose_mask)
+                                        except:
+                                            # print('Missed RoI')
+                                            pass
+                                        info_str = info_str + "; Nostril extraction failed, using whole nose mask"
+                                    else:
+                                        respVal = max_temp
+                                        info_str = info_str + "; Nose not detected!!"
+                                mySrc.resp_signal.emit(respVal)
 
-                    else:
-                        pred_seg_mask = None
-                        info_str = "[Min Temp, Max Temp] = " + str([min_temp, max_temp])
+                        else:
+                            pred_seg_mask = None
+                            info_str = "[Min Temp, Max Temp] = " + str([min_temp, max_temp])
 
-                    fig = Figure(tight_layout=True)
-                    canvas = FigureCanvas_Image(fig)
-                    ax = fig.add_subplot(111)
-                    if np.all(pred_seg_mask) != None:
-                        ax.imshow(thermal_matrix, cmap='gray')
-                        ax.imshow(pred_seg_mask, cmap='seismic', alpha=0.35)
-                    else:
-                        ax.imshow(thermal_matrix, cmap='magma')
-                    ax.set_axis_off()
-                    canvas.draw()
-                    width, height = fig.figbbox.width, fig.figbbox.height
-                    mySrc.data_signal.emit([canvas, width, height])
-                
-                info_str = "Frame acquisition status: " + frame_status + "; " + info_str                
-                # time.sleep(0.05)
-                t2 = time.time()
-                t_elapsed = str(t2 - t1)
-                info_str = info_str + "; total_time_per_frame: " + t_elapsed
-                mySrc.status_signal.emit(info_str)
+                        fig = Figure(tight_layout=True)
+                        canvas = FigureCanvas_Image(fig)
+                        ax = fig.add_subplot(111)
+                        if np.all(pred_seg_mask) != None:
+                            ax.imshow(thermal_matrix, cmap='gray')
+                            ax.imshow(pred_seg_mask, cmap='seismic', alpha=0.35)
+                        else:
+                            ax.imshow(thermal_matrix, cmap='magma')
+                        ax.set_axis_off()
+                        canvas.draw()
+                        width, height = fig.figbbox.width, fig.figbbox.height
+                        mySrc.data_signal.emit([canvas, width, height])
+                    
+                    info_str = "Frame acquisition status: " + frame_status + "; " + info_str                
+                    # time.sleep(0.05)
+                    t2 = time.time()
+                    t_elapsed = str(t2 - t1)
+                    info_str = info_str + "; total_time_per_frame: " + t_elapsed
+                    mySrc.status_signal.emit(info_str)
 
+                else:
+                    time.sleep(0.25)
             else:
-                time.sleep(0.25)
-        else:
-            mySrc.status_signal.emit("Acquisition thread termination. Please restart the application...")
-            break
+                mySrc.status_signal.emit(
+                    "Acquisition thread termination. Please restart the application...")
+                break
+        except:
+            pass
+
 
 
 
@@ -411,8 +424,8 @@ class LivePlotFigCanvas(FigureCanvas_Plot, TimedAnimation):
         self.exception_count = 0
         # print(matplotlib.__version__)
         # The data
-        self.max_time = 30 # 30 second time window
-        self.measure_time = 5 #moving max_time sample by 1 sec.
+        self.max_time = 20 # 30 second time window
+        self.measure_time = 1 #moving max_time sample by 1 sec.
         self.xlim = int(self.max_time*self.uiObj.fps)
         self.x_axis = np.linspace(0, self.xlim - 1, self.xlim)
         self.resp_plot_signal = (self.x_axis * 0.0) + 25
@@ -444,6 +457,7 @@ class LivePlotFigCanvas(FigureCanvas_Plot, TimedAnimation):
 
 
         FigureCanvas_Plot.__init__(self, self.fig)
+
         TimedAnimation.__init__(self, self.fig, interval=int(round(1000.0/self.uiObj.fps)), blit = True)
 
         resp_lowcut = 0.1
@@ -495,8 +509,8 @@ class LivePlotFigCanvas(FigureCanvas_Plot, TimedAnimation):
 
             if self.count_frame >= (self.measure_time * self.uiObj.fps):
                 self.count_frame = 0
-                self.ax1.set_ylim(np.min(self.resp_plot_signal[-self.measure_time*self.uiObj.fps:]), np.max(
-                    self.resp_plot_signal[-self.measure_time*self.uiObj.fps:]))
+                self.ax1.set_ylim(np.min(self.resp_plot_signal[-self.max_time*self.uiObj.fps:]), np.max(
+                    self.resp_plot_signal[-self.max_time*self.uiObj.fps:]))
                 
             self.line1.set_data(self.x_axis[0: self.x_axis.size - margin],
                                 self.resp_plot_signal[0: self.x_axis.size - margin])
