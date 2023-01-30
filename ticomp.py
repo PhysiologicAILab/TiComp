@@ -24,6 +24,7 @@ from pathlib import Path
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas_Image
 # from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas_Plot
+# from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas_Plot
 from matplotlib.lines import Line2D
 from matplotlib.animation import TimedAnimation
 from matplotlib.figure import Figure
@@ -68,7 +69,7 @@ class TIComp(QWidget):
         self.configer = Configer(args_parser=self.args_parser)
         ckpt_root = self.configer.get('checkpoints', 'checkpoints_dir')
         ckpt_name = self.configer.get('checkpoints', 'checkpoints_name')
-        self.configer.update(['network', 'resume'], os.path.join(ckpt_root, ckpt_name + '_max_performance.pth'))
+        self.configer.update(['network', 'resume'], os.path.join(ckpt_root, ckpt_name + '.pth'))
 
         self.tcamObj = tcam()
         self.segObj = ThermSeg(self.configer)
@@ -229,7 +230,7 @@ class TIComp(QWidget):
         self.configer = Configer(args_parser=self.args_parser)
         ckpt_root = self.configer.get('checkpoints', 'checkpoints_dir')
         ckpt_name = self.configer.get('checkpoints', 'checkpoints_name')
-        self.configer.update(['network', 'resume'], os.path.join(ckpt_root, ckpt_name + '_max_performance.pth'))
+        self.configer.update(['network', 'resume'], os.path.join(ckpt_root, ckpt_name + '.pth'))
         self.segObj.load_model(self.configer)
 
     def addRespData(self, respVal):
